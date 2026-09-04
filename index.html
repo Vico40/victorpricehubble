@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaBanque - Estimez votre bien en 1 minute</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            mabanque: {
+              blue: '#0B2545',
+              teal: '#134074',
+              accent: '#00A86B',
+              bg: '#EEF4F8'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-mabanque-bg font-sans min-h-screen flex flex-col justify-between text-slate-800">
+
+  <header class="bg-mabanque-blue text-white py-4 px-6 shadow-md flex justify-between items-center">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 bg-mabanque-accent rounded-lg flex items-center justify-center text-white font-bold text-xl">M</div>
+      <span class="text-xl font-bold tracking-tight">MaBanque</span>
+    </div>
+    <span class="text-xs bg-mabanque-teal px-2.5 py-1 rounded-full border border-blue-400/30">Espace Immobilier</span>
+  </header>
+
+  <main class="max-w-md mx-auto w-full p-4 flex-grow flex flex-col justify-center">
+
+    <div id="form-container" class="bg-white rounded-2xl p-6 shadow-xl border border-slate-100">
+      <h1 class="text-xl font-bold text-mabanque-blue mb-1">Quelle est la valeur de votre bien ?</h1>
+      <p class="text-xs text-slate-500 mb-6">Estimation instantanée basée sur les données du marché en temps réel.</p>
+
+      <form id="valuation-form" class="space-y-4">
+        
+        <div class="relative">
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Adresse du bien</label>
+          <input type="text" id="address-input" required placeholder="Ex: 15 Rue de la Paix, Paris"
+            class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+          <div id="suggestions" class="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg hidden max-h-48 overflow-y-auto mt-1"></div>
+        </div>
+
+        <input type="hidden" id="lat">
+        <input type="hidden" id="lng">
+        <input type="hidden" id="postcode">
+        <input type="hidden" id="city">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Type de bien</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-type="apartment" class="type-btn active py-2.5 text-sm font-medium border rounded-lg text-center bg-mabanque-blue text-white border-mabanque-blue">Appartement</button>
+            <button type="button" data-type="house" class="type-btn py-2.5 text-sm font-medium border rounded-lg text-center bg-white text-slate-700 border-slate-300">Maison</button>
+          </div>
+          <input type="hidden" id="property-type" value="apartment">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Surface (m²)</label>
+            <input type="number" id="surface" required min="10" max="1000" placeholder="75"
+              class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Nombre de pièces</label>
+            <input type="number" id="rooms" required min="1" max="20" placeholder="3"
+              class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Votre email (pour recevoir le rapport)</label>
+          <input type="email" id="email" required placeholder="jean.dupont@email.com"
+            class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+        </div>
+
+        <button type="submit" id="submit-btn" class="w-full bg-mabanque-accent hover:bg-emerald-600 text-white font-semibold py-3 rounded-lg shadow-lg transition duration-150 flex items-center justify-center">
+          <span>Estimer gratuitement</span>
+        </button>
+      </form>
+    </div>
+
+    <div id="loader" class="hidden bg-white rounded-2xl p-8 shadow-xl text-center border border-slate-100">
+      <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-mabanque-blue border-t-transparent mb-4"></div>
+      <h2 class="text-lg font-bold text-mabanque-blue">Analyse du marché en cours...</h2>
+      <p class="text-xs text-slate-500 mt-2">Nous comparons les transactions récentes autour de votre adresse.</p>
+    </div>
+
+    <div id="result-container" class="hidden bg-white rounded-2xl p-6 shadow-xl border border-slate-100 space-y-5">
+      <div class="text-center">
+        <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wide bg-emerald-50 px-3 py-1 rounded-full">Estimation finalisée</span>
+        <h2 class="text-sm font-medium text-slate-500 mt-3">Valeur estimée de votre bien</h2>
+        <div id="res-price" class="text-3xl font-extrabold text-mabanque-blue my-1">-- €</div>
+        <p id="res-range" class="text-xs text-slate-400">Fourchette : -- € à -- €</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
+        <div class="bg-slate-50 p-3 rounded-xl text-center">
+          <span class="text-[10px] text-slate-400 uppercase font-semibold">Prix moyen / m²</span>
+          <div id="res-sqm-price" class="text-base font-bold text-slate-700">-- €/m²</div>
+        </div>
+        <div class="bg-slate-50 p-3 rounded-xl text-center">
+          <span class="text-[10px] text-slate-400 uppercase font-semibold">Indice de confiance</span>
+          <div id="res-confidence" class="text-base font-bold text-mabanque-accent">Élevé</div>
+        </div>
+      </div>
+
+      <div class="bg-blue-50 border border-blue-100 p-3.5 rounded-xl text-xs text-blue-900 leading-relaxed">
+        <strong>💡 Prochaine étape :</strong> Un conseiller MaBanque peut affiner ce montant lors d'un projet de financement ou de vente.
+      </div>
+
+      <button onclick="window.location.reload()" class="w-full text-xs font-medium text-slate-500 hover:text-slate-800 py-2">
+        ← Effectuer une autre simulation
+      </button>
+    </div>
+
+  </main>
+
+  <footer class="py-4 text-center text-[11px] text-slate-400">
+    Prototype MaBanque × PriceHubble API Demo
+  </footer>
+
+  <script>
+    // Configurer l'URL de votre Webhook n8n ici
+    const N8N_WEBHOOK_URL = 'https://VOTRE-INSTANCE-N8N.com/webhook/valuation-prototype';
+
+    // Gestion du type de bien
+    const typeBtns = document.querySelectorAll('.type-btn');
+    typeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        typeBtns.forEach(b => {
+          b.classList.remove('bg-mabanque-blue', 'text-white', 'border-mabanque-blue');
+          b.classList.add('bg-white', 'text-slate-700', 'border-slate-300');
+        });
+        btn.classList.add('bg-mabanque-blue', 'text-white', 'border-mabanque-blue');
+        btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-300');
+        document.getElementById('property-type').value = btn.dataset.type;
+      });
+    });
+
+    // Autocomplétion via l'API BAN (Base Adresse Nationale)
+    const addressInput = document.getElementById('address-input');
+    const suggestionsDiv = document.getElementById('suggestions');
+
+    addressInput.addEventListener('input', async (e) => {
+      const query = e.target.value;
+      if (query.length < 5) {
+        suggestionsDiv.classList.add('hidden');
+        return;
+      }
+
+      const res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+      const data = await res.json();
+
+      if (data.features && data.features.length > 0) {
+        suggestionsDiv.innerHTML = '';
+        data.features.forEach(feat => {
+          const item = document.createElement('div');
+          item.className = 'px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer border-b border-slate-50 last:border-none';
+          item.innerText = feat.properties.label;
+          item.addEventListener('click', () => {
+            addressInput.value = feat.properties.label;
+            document.getElementById('lng').value = feat.geometry.coordinates[0];
+            document.getElementById('lat').value = feat.geometry.coordinates[1];
+            document.getElementById('postcode').value = feat.properties.postcode;
+            document.getElementById('city').value = feat.properties.city;
+            suggestionsDiv.classList.add('hidden');
+          });
+          suggestionsDiv.appendChild(item);
+        });
+        suggestionsDiv.classList.remove('hidden');
+      }
+    });
+
+    // Soumission du formulaire vers n8n
+    document.getElementById('valuation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      document.getElementById('form-container').classList.add('hidden');
+      document.getElementById('loader').classList.remove('hidden');
+
+      const payload = {
+        address: addressInput.value,
+        coordinates: {
+          latitude: parseFloat(document.getElementById('lat').value) || 48.8566,
+          longitude: parseFloat(document.getElementById('lng').value) || 2.3522
+        },
+        postcode: document.getElementById('postcode').value,
+        city: document.getElementById('city').value,
+        property_type: document.getElementById('property-type').value,
+        surface: parseFloat(document.getElementById('surface').value),
+        rooms: parseInt(document.getElementById('rooms').value),
+        email: document.getElementById('email').value
+      };
+
+      try {
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        // Remplissage de l'écran résultat
+        document.getElementById('res-price').innerText = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.valuation.target);
+        document.getElementById('res-range').innerText = `Fourchette : ${new Intl.NumberFormat('fr-FR').format(data.valuation.lower)} € - ${new Intl.NumberFormat('fr-FR').format(data.valuation.upper)} €`;
+        document.getElementById('res-sqm-price').innerText = `${Math.round(data.valuation.target / payload.surface)} €/m²`;
+
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('result-container').classList.remove('hidden');
+
+      } catch (err) {
+        alert("Erreur de connexion avec le serveur d'estimation. Vérifiez l'URL de votre Webhook n8n.");
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('form-container').classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
