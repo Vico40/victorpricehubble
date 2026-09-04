@@ -178,21 +178,50 @@
       }
     });
 
-    // Soumission du formulaire vers n8n
+ // Soumission du formulaire vers n8n
     document.getElementById('valuation-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
       document.getElementById('form-container').classList.add('hidden');
       document.getElementById('loader').classList.remove('hidden');
 
+      let lat = document.getElementById('lat').value;
+      let lng = document.getElementById('lng').value;
+      let postcode = document.getElementById('postcode').value;
+      let city = document.getElementById('city').value;
+      const rawAddress = addressInput.value;
+
+      // FIX UX : Si l'utilisateur n'a pas cliqué sur une suggestion, on force le géocodage du premier résultat
+      if (!postcode || !city || !lat || !lng) {
+        try {
+          const res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(rawAddress)}&limit=1`);
+          const data = await res.json();
+          
+          if (data.features && data.features.length > 0) {
+            lat = data.features[0].geometry.coordinates[1];
+            lng = data.features[0].geometry.coordinates[0];
+            postcode = data.features[0].properties.postcode;
+            city = data.features[0].properties.city;
+          } else {
+            throw new Error("Adresse introuvable");
+          }
+        } catch (error) {
+          alert("L'adresse saisie est introuvable. Veuillez réessayer en sélectionnant une suggestion.");
+          document.getElementById('loader').classList.add('hidden');
+          document.getElementById('form-container').classList.remove('hidden');
+          return; // Stoppe l'exécution
+        }
+      }
+
+      // Constitution du payload robuste pour n8n -> PriceHubble
       const payload = {
-        address: addressInput.value,
+        address: rawAddress,
         coordinates: {
-          latitude: parseFloat(document.getElementById('lat').value) || 48.8566,
-          longitude: parseFloat(document.getElementById('lng').value) || 2.3522
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lng)
         },
-        postcode: document.getElementById('postcode').value,
-        city: document.getElementById('city').value,
+        postcode: postcode,
+        city: city,
         property_type: document.getElementById('property-type').value,
         surface: parseFloat(document.getElementById('surface').value),
         rooms: parseInt(document.getElementById('rooms').value),
