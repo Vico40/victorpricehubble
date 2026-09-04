@@ -146,9 +146,12 @@
       });
     });
 
-   // Autocomplétion via l'API BAN
+   // Autocomplétion avec support International (BAN + Nominatim)
 const addressInput = document.getElementById('address-input');
 const suggestionsDiv = document.getElementById('suggestions');
+
+// Champs cachés dans le DOM
+let selectedCountryCode = 'FR';
 
 addressInput.addEventListener('input', async (e) => {
   const query = e.target.value;
@@ -157,36 +160,62 @@ addressInput.addEventListener('input', async (e) => {
     return;
   }
 
-  const res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
-  const data = await res.json();
+  try {
+    // 1. Essai sur la BAN (France)
+    let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+    let data = await res.json();
+    let features = data.features || [];
 
-  if (data.features && data.features.length > 0) {
-    suggestionsDiv.innerHTML = '';
-    data.features.forEach(feat => {
-      const item = document.createElement('div');
-      item.className = 'px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer border-b border-slate-50 last:border-none';
-      item.innerText = feat.properties.label;
+    // 2. Fallback Nominatim si aucun résultat français
+    if (features.length === 0) {
+      const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`);
+      const nomData = await nomRes.json();
       
-      item.addEventListener('click', () => {
-        addressInput.value = feat.properties.label;
-        document.getElementById('lng').value = feat.geometry.coordinates[0];
-        document.getElementById('lat').value = feat.geometry.coordinates[1];
-        document.getElementById('postcode').value = feat.properties.postcode || '';
-        document.getElementById('city').value = feat.properties.city || '';
+      features = nomData.map(item => ({
+        geometry: { coordinates: [parseFloat(item.lon), parseFloat(item.lat)] },
+        properties: {
+          label: item.display_name,
+          housenumber: item.address.house_number || '',
+          street: item.address.road || item.address.pedestrian || '',
+          postcode: item.address.postcode || '',
+          city: item.address.city || item.address.town || item.address.village || '',
+          country_code: (item.address.country_code || 'FR').toUpperCase()
+        }
+      }));
+    } else {
+      // Pour les résultats BAN, le pays est systématiquement FR
+      features.forEach(f => f.properties.country_code = 'FR');
+    }
+
+    if (features.length > 0) {
+      suggestionsDiv.innerHTML = '';
+      features.forEach(feat => {
+        const item = document.createElement('div');
+        item.className = 'px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer border-b border-slate-50 last:border-none';
+        item.innerText = feat.properties.label;
         
-        // Extraction du numéro et de la rue
-        document.getElementById('street-number').value = feat.properties.housenumber || '';
-        document.getElementById('street-name').value = feat.properties.street || feat.properties.name || '';
-        
-        suggestionsDiv.classList.add('hidden');
+        item.addEventListener('click', () => {
+          addressInput.value = feat.properties.label;
+          document.getElementById('lng').value = feat.geometry.coordinates[0];
+          document.getElementById('lat').value = feat.geometry.coordinates[1];
+          document.getElementById('postcode').value = feat.properties.postcode || '';
+          document.getElementById('city').value = feat.properties.city || '';
+          document.getElementById('street-number').value = feat.properties.housenumber || '';
+          document.getElementById('street-name').value = feat.properties.street || '';
+          selectedCountryCode = feat.properties.country_code || 'FR';
+          
+          suggestionsDiv.classList.add('hidden');
+        });
+        suggestionsDiv.appendChild(item);
       });
-      suggestionsDiv.appendChild(item);
-    });
-    suggestionsDiv.classList.remove('hidden');
+      suggestionsDiv.classList.remove('hidden');
+    }
+  } catch (err) {
+    console.error("Erreur de géocodage:", err);
   }
 });
 
-// Soumission du formulaire vers n8n
+// Soumission du formulaire
 document.getElementById('valuation-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -201,42 +230,43 @@ document.getElementById('valuation-form').addEventListener('submit', async (e) =
   let streetName = document.getElementById('street-name').value;
   const rawAddress = addressInput.value;
 
-  // Fallback si l'utilisateur soumet sans cliquer sur une suggestion
+  // Secours si aucune suggestion cliquée
   if (!postcode || !city || !lat || !lng) {
     try {
-      const res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(rawAddress)}&limit=1`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(rawAddress)}&addressdetails=1&limit=1`);
       const data = await res.json();
       
-      if (data.features && data.features.length > 0) {
-        const feat = data.features[0];
-        lat = feat.geometry.coordinates[1];
-        lng = feat.geometry.coordinates[0];
-        postcode = feat.properties.postcode || '';
-        city = feat.properties.city || '';
-        streetNumber = feat.properties.housenumber || '';
-        streetName = feat.properties.street || feat.properties.name || '';
+      if (data && data.length > 0) {
+        const item = data[0];
+        lat = item.lat;
+        lng = item.lon;
+        postcode = item.address.postcode || '';
+        city = item.address.city || item.address.town || '';
+        streetNumber = item.address.house_number || '';
+        streetName = item.address.road || '';
+        selectedCountryCode = (item.address.country_code || 'FR').toUpperCase();
       } else {
-        throw new Error("Adresse introuvable");
+        throw new Error("Adresse non trouvée");
       }
     } catch (error) {
-      alert("L'adresse saisie est introuvable. Veuillez sélectionner une suggestion dans la liste.");
+      alert("Impossible de localiser cette adresse. Merci de sélectionner une suggestion.");
       document.getElementById('loader').classList.add('hidden');
       document.getElementById('form-container').classList.remove('hidden');
       return;
     }
   }
 
-  // Construction du payload envoyé au Webhook n8n
   const payload = {
     address: rawAddress,
     street_number: streetNumber,
     street: streetName,
+    postcode: postcode,
+    city: city,
+    country_code: selectedCountryCode.toUpperCase(),
     coordinates: {
       latitude: parseFloat(lat),
       longitude: parseFloat(lng)
     },
-    postcode: postcode,
-    city: city,
     property_type: document.getElementById('property-type').value,
     surface: parseFloat(document.getElementById('surface').value),
     rooms: parseInt(document.getElementById('rooms').value),
@@ -260,7 +290,7 @@ document.getElementById('valuation-form').addEventListener('submit', async (e) =
     document.getElementById('result-container').classList.remove('hidden');
 
   } catch (err) {
-    alert("Erreur lors du calcul de l'estimation.");
+    alert("Erreur de connexion avec le serveur d'estimation.");
     document.getElementById('loader').classList.add('hidden');
     document.getElementById('form-container').classList.remove('hidden');
   }
