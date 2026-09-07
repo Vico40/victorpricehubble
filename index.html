@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -113,7 +113,7 @@
         <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wide bg-emerald-50 px-3 py-1 rounded-full">Estimate finalized</span>
         <h2 class="text-sm font-medium text-slate-500 mt-3">Estimated value of your property</h2>
         <div id="res-price" class="text-3xl font-extrabold text-mabanque-blue my-1">-- €</div>
-        <p id="res-range" class="text-xs text-slate-400">Price range : -- € to -- €</p>
+        <p id="res-range" class="text-xs text-slate-400">Price range: -- € to -- €</p>
       </div>
 
       <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
@@ -123,7 +123,7 @@
         </div>
         <div class="bg-slate-50 p-3 rounded-xl text-center">
           <span class="text-[10px] text-slate-400 uppercase font-semibold">Confidence index</span>
-          <div id="res-confidence" class="text-base font-bold text-mabanque-accent">Élevé</div>
+          <div id="res-confidence" class="text-base font-bold text-mabanque-accent">--</div>
         </div>
       </div>
 
@@ -145,7 +145,7 @@
   <script>
     const N8N_WEBHOOK_URL = 'https://victoralbrieux.app.n8n.cloud/webhook/valuation-mabanque';
 
-    // Gestion du type de bien
+    // Property type selection
     const typeBtns = document.querySelectorAll('.type-btn');
     typeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -159,7 +159,7 @@
       });
     });
 
-    // Autocomplétion
+    // Autocomplete with International support (BAN + Nominatim)
     const addressInput = document.getElementById('address-input');
     const suggestionsDiv = document.getElementById('suggestions');
 
@@ -220,15 +220,15 @@
           suggestionsDiv.classList.remove('hidden');
         }
       } catch (err) {
-        console.error("Erreur de géocodage:", err);
+        console.error("Geocoding error:", err);
       }
     });
 
-    // Soumission du formulaire
+    // Form submission
     document.getElementById('valuation-form').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // Validation de l'année de construction
+      // Construction year validation
       const yearInput = document.getElementById('building-year');
       const yearError = document.getElementById('year-error');
       const buildingYear = parseInt(yearInput.value, 10);
@@ -269,10 +269,10 @@
             streetName = item.address.road || '';
             selectedCountryCode = (item.address.country_code || 'FR').toUpperCase();
           } else {
-            throw new Error("Adresse non trouvée");
+            throw new Error("Address not found");
           }
         } catch (error) {
-          alert("Impossible de localiser cette adresse. Merci de sélectionner une suggestion.");
+          alert("Unable to locate this address. Please select a suggestion.");
           document.getElementById('loader').classList.add('hidden');
           document.getElementById('form-container').classList.remove('hidden');
           return;
@@ -305,17 +305,36 @@
           body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
+        const rawData = await response.json();
 
-        document.getElementById('res-price').innerText = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.valuation.target);
-        document.getElementById('res-range').innerText = `Fourchette : ${new Intl.NumberFormat('fr-FR').format(data.valuation.lower)} € - ${new Intl.NumberFormat('fr-FR').format(data.valuation.upper)} €`;
-        document.getElementById('res-sqm-price').innerText = `${Math.round(data.valuation.target / payload.surface)} €/m²`;
+        // Safe extraction whether n8n returns an array or an object
+        const item = Array.isArray(rawData) ? rawData[0] : rawData;
+
+        const targetPrice = item.target || item.value || (item.valuation ? item.valuation.target : 0);
+        const lowerPrice = item.lower || (item.valueRange ? item.valueRange.lower : (item.valuation ? item.valuation.lower : 0));
+        const upperPrice = item.upper || (item.valueRange ? item.valueRange.upper : (item.valuation ? item.valuation.upper : 0));
+        const rawConfidence = item.confidence || item.valuationConfidence || item.valuationSale?.valuationConfidence || (item.valuation ? item.valuation.confidence : '');
+
+        document.getElementById('res-price').innerText = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(targetPrice);
+        document.getElementById('res-range').innerText = `Price range: ${new Intl.NumberFormat('en-US').format(lowerPrice)} € to ${new Intl.NumberFormat('en-US').format(upperPrice)} €`;
+        document.getElementById('res-sqm-price').innerText = `${Math.round(targetPrice / payload.surface)} €/m²`;
+
+        // English confidence mapping
+        const confidenceLabels = {
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High'
+        };
+
+        const displayConfidence = confidenceLabels[rawConfidence?.toLowerCase()] || rawConfidence || 'High';
+        document.getElementById('res-confidence').innerText = displayConfidence;
 
         document.getElementById('loader').classList.add('hidden');
         document.getElementById('result-container').classList.remove('hidden');
 
       } catch (err) {
-        alert("Erreur de connexion avec le serveur d'estimation.");
+        console.error("Valuation error:", err);
+        alert("Error connecting to the valuation server.");
         document.getElementById('loader').classList.add('hidden');
         document.getElementById('form-container').classList.remove('hidden');
       }
