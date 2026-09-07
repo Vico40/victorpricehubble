@@ -66,21 +66,28 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Living area (m²)</label>
-            <input type="number" id="surface" required min="10" max="1000" placeholder="75"
+            <input type="number" id="surface" required min="5" max="1000" placeholder="75"
               class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
           </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Land area (m²)</label>
+            <input type="number" id="land-area" required min="10" max="1000000" placeholder="250"
+              class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Number of rooms</label>
             <input type="number" id="rooms" required min="1" max="20" placeholder="3"
               class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
           </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Construction year</label>
-          <input type="number" id="building-year" required placeholder="Ex: 1985"
-            class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
-          <p id="year-error" class="hidden text-xs text-red-600 font-medium mt-1">The construction year must be 1200 or later.</p>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Construction year</label>
+            <input type="number" id="building-year" required placeholder="Ex: 1985"
+              class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+            <p id="year-error" class="hidden text-xs text-red-600 font-medium mt-1">The construction year must be 1200 or later.</p>
+          </div>
         </div>
 
         <div>
@@ -152,7 +159,7 @@
       });
     });
 
-    // Autocomplétion avec support International (BAN + Nominatim)
+    // Autocomplétion
     const addressInput = document.getElementById('address-input');
     const suggestionsDiv = document.getElementById('suggestions');
 
@@ -230,7 +237,7 @@
         yearError.classList.remove('hidden');
         yearInput.classList.add('border-red-500', 'focus:ring-red-500');
         yearInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return; // Interrompt la soumission
+        return;
       } else {
         yearError.classList.add('hidden');
         yearInput.classList.remove('border-red-500', 'focus:ring-red-500');
@@ -285,6 +292,7 @@
         },
         property_type: document.getElementById('property-type').value,
         surface: parseFloat(document.getElementById('surface').value),
+        land_area: parseFloat(document.getElementById('land-area').value),
         rooms: parseInt(document.getElementById('rooms').value),
         building_year: buildingYear,
         email: document.getElementById('email').value
