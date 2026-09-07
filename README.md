@@ -51,7 +51,7 @@
  "land_area": 1800,
  "rooms": 6,
  "building_year": 1900,
-  "email": "victor.albrieux@gmail.com"
+  "email": "YOUR_EMAIL_ADDRESS"
 }
 
 ```
