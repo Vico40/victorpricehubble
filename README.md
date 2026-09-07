@@ -12,8 +12,7 @@
 
 
 # 2. System Architecture Diagram
-
-![Image: ](https://devoteam-dmo.monday.com/protected_static/30004817/resources/266292613/PriceHubble%20Workflow%20%281%29.png)
+<img width="599" height="804" alt="PriceHubble Workflow (1)" src="https://github.com/user-attachments/assets/17457578-ca90-4d97-ad69-f48229757ab5" />
 
 
 # 3. Component Breakdown: Real vs. Mocked / Simplified
