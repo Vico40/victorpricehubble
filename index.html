@@ -77,6 +77,13 @@
         </div>
 
         <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Construction year</label>
+          <input type="number" id="building-year" required placeholder="Ex: 1985"
+            class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
+          <p id="year-error" class="hidden text-xs text-red-600 font-medium mt-1">The construction year must be 1200 or later.</p>
+        </div>
+
+        <div>
           <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">Your email (to receive the report)</label>
           <input type="email" id="email" required placeholder="jean.dupont@email.com"
             class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-mabanque-teal">
@@ -129,8 +136,7 @@
   </footer>
 
   <script>
-    // Configurer l'URL de votre Webhook n8n ici
-    const N8N_WEBHOOK_URL = 'https://victoralbrieux.app.n8n.cloud/webhook-test/valuation-mabanque';
+    const N8N_WEBHOOK_URL = 'https://victoralbrieux.app.n8n.cloud/webhook/valuation-mabanque';
 
     // Gestion du type de bien
     const typeBtns = document.querySelectorAll('.type-btn');
@@ -146,155 +152,166 @@
       });
     });
 
-   // Autocomplétion avec support International (BAN + Nominatim)
-const addressInput = document.getElementById('address-input');
-const suggestionsDiv = document.getElementById('suggestions');
+    // Autocomplétion avec support International (BAN + Nominatim)
+    const addressInput = document.getElementById('address-input');
+    const suggestionsDiv = document.getElementById('suggestions');
 
-// Champs cachés dans le DOM
-let selectedCountryCode = 'FR';
+    let selectedCountryCode = 'FR';
 
-addressInput.addEventListener('input', async (e) => {
-  const query = e.target.value;
-  if (query.length < 5) {
-    suggestionsDiv.classList.add('hidden');
-    return;
-  }
-
-  try {
-    // 1. Essai sur la BAN (France)
-    let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
-    let data = await res.json();
-    let features = data.features || [];
-
-    // 2. Fallback Nominatim si aucun résultat français
-    if (features.length === 0) {
-      const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`);
-      const nomData = await nomRes.json();
-      
-      features = nomData.map(item => ({
-        geometry: { coordinates: [parseFloat(item.lon), parseFloat(item.lat)] },
-        properties: {
-          label: item.display_name,
-          housenumber: item.address.house_number || '',
-          street: item.address.road || item.address.pedestrian || '',
-          postcode: item.address.postcode || '',
-          city: item.address.city || item.address.town || item.address.village || '',
-          country_code: (item.address.country_code || 'FR').toUpperCase()
-        }
-      }));
-    } else {
-      // Pour les résultats BAN, le pays est systématiquement FR
-      features.forEach(f => f.properties.country_code = 'FR');
-    }
-
-    if (features.length > 0) {
-      suggestionsDiv.innerHTML = '';
-      features.forEach(feat => {
-        const item = document.createElement('div');
-        item.className = 'px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer border-b border-slate-50 last:border-none';
-        item.innerText = feat.properties.label;
-        
-        item.addEventListener('click', () => {
-          addressInput.value = feat.properties.label;
-          document.getElementById('lng').value = feat.geometry.coordinates[0];
-          document.getElementById('lat').value = feat.geometry.coordinates[1];
-          document.getElementById('postcode').value = feat.properties.postcode || '';
-          document.getElementById('city').value = feat.properties.city || '';
-          document.getElementById('street-number').value = feat.properties.housenumber || '';
-          document.getElementById('street-name').value = feat.properties.street || '';
-          selectedCountryCode = feat.properties.country_code || 'FR';
-          
-          suggestionsDiv.classList.add('hidden');
-        });
-        suggestionsDiv.appendChild(item);
-      });
-      suggestionsDiv.classList.remove('hidden');
-    }
-  } catch (err) {
-    console.error("Erreur de géocodage:", err);
-  }
-});
-
-// Soumission du formulaire
-document.getElementById('valuation-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  document.getElementById('form-container').classList.add('hidden');
-  document.getElementById('loader').classList.remove('hidden');
-
-  let lat = document.getElementById('lat').value;
-  let lng = document.getElementById('lng').value;
-  let postcode = document.getElementById('postcode').value;
-  let city = document.getElementById('city').value;
-  let streetNumber = document.getElementById('street-number').value;
-  let streetName = document.getElementById('street-name').value;
-  const rawAddress = addressInput.value;
-
-  // Secours si aucune suggestion cliquée
-  if (!postcode || !city || !lat || !lng) {
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(rawAddress)}&addressdetails=1&limit=1`);
-      const data = await res.json();
-      
-      if (data && data.length > 0) {
-        const item = data[0];
-        lat = item.lat;
-        lng = item.lon;
-        postcode = item.address.postcode || '';
-        city = item.address.city || item.address.town || '';
-        streetNumber = item.address.house_number || '';
-        streetName = item.address.road || '';
-        selectedCountryCode = (item.address.country_code || 'FR').toUpperCase();
-      } else {
-        throw new Error("Adresse non trouvée");
+    addressInput.addEventListener('input', async (e) => {
+      const query = e.target.value;
+      if (query.length < 5) {
+        suggestionsDiv.classList.add('hidden');
+        return;
       }
-    } catch (error) {
-      alert("Impossible de localiser cette adresse. Merci de sélectionner une suggestion.");
-      document.getElementById('loader').classList.add('hidden');
-      document.getElementById('form-container').classList.remove('hidden');
-      return;
-    }
-  }
 
-  const payload = {
-    address: rawAddress,
-    street_number: streetNumber,
-    street: streetName,
-    postcode: postcode,
-    city: city,
-    country_code: selectedCountryCode.toUpperCase(),
-    coordinates: {
-      latitude: parseFloat(lat),
-      longitude: parseFloat(lng)
-    },
-    property_type: document.getElementById('property-type').value,
-    surface: parseFloat(document.getElementById('surface').value),
-    rooms: parseInt(document.getElementById('rooms').value),
-    email: document.getElementById('email').value
-  };
+      try {
+        let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+        let data = await res.json();
+        let features = data.features || [];
 
-  try {
-    const response = await fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+        if (features.length === 0) {
+          const nomRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`);
+          const nomData = await nomRes.json();
+          
+          features = nomData.map(item => ({
+            geometry: { coordinates: [parseFloat(item.lon), parseFloat(item.lat)] },
+            properties: {
+              label: item.display_name,
+              housenumber: item.address.house_number || '',
+              street: item.address.road || item.address.pedestrian || '',
+              postcode: item.address.postcode || '',
+              city: item.address.city || item.address.town || item.address.village || '',
+              country_code: (item.address.country_code || 'FR').toUpperCase()
+            }
+          }));
+        } else {
+          features.forEach(f => f.properties.country_code = 'FR');
+        }
+
+        if (features.length > 0) {
+          suggestionsDiv.innerHTML = '';
+          features.forEach(feat => {
+            const item = document.createElement('div');
+            item.className = 'px-3 py-2 text-xs hover:bg-slate-100 cursor-pointer border-b border-slate-50 last:border-none';
+            item.innerText = feat.properties.label;
+            
+            item.addEventListener('click', () => {
+              addressInput.value = feat.properties.label;
+              document.getElementById('lng').value = feat.geometry.coordinates[0];
+              document.getElementById('lat').value = feat.geometry.coordinates[1];
+              document.getElementById('postcode').value = feat.properties.postcode || '';
+              document.getElementById('city').value = feat.properties.city || '';
+              document.getElementById('street-number').value = feat.properties.housenumber || '';
+              document.getElementById('street-name').value = feat.properties.street || '';
+              selectedCountryCode = feat.properties.country_code || 'FR';
+              
+              suggestionsDiv.classList.add('hidden');
+            });
+            suggestionsDiv.appendChild(item);
+          });
+          suggestionsDiv.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error("Erreur de géocodage:", err);
+      }
     });
 
-    const data = await response.json();
+    // Soumission du formulaire
+    document.getElementById('valuation-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-    document.getElementById('res-price').innerText = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.valuation.target);
-    document.getElementById('res-range').innerText = `Fourchette : ${new Intl.NumberFormat('fr-FR').format(data.valuation.lower)} € - ${new Intl.NumberFormat('fr-FR').format(data.valuation.upper)} €`;
-    document.getElementById('res-sqm-price').innerText = `${Math.round(data.valuation.target / payload.surface)} €/m²`;
+      // Validation de l'année de construction
+      const yearInput = document.getElementById('building-year');
+      const yearError = document.getElementById('year-error');
+      const buildingYear = parseInt(yearInput.value, 10);
 
-    document.getElementById('loader').classList.add('hidden');
-    document.getElementById('result-container').classList.remove('hidden');
+      if (isNaN(buildingYear) || buildingYear < 1200) {
+        yearError.classList.remove('hidden');
+        yearInput.classList.add('border-red-500', 'focus:ring-red-500');
+        yearInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return; // Interrompt la soumission
+      } else {
+        yearError.classList.add('hidden');
+        yearInput.classList.remove('border-red-500', 'focus:ring-red-500');
+      }
 
-  } catch (err) {
-    alert("Erreur de connexion avec le serveur d'estimation.");
-    document.getElementById('loader').classList.add('hidden');
-    document.getElementById('form-container').classList.remove('hidden');
-  }
-});
+      document.getElementById('form-container').classList.add('hidden');
+      document.getElementById('loader').classList.remove('hidden');
+
+      let lat = document.getElementById('lat').value;
+      let lng = document.getElementById('lng').value;
+      let postcode = document.getElementById('postcode').value;
+      let city = document.getElementById('city').value;
+      let streetNumber = document.getElementById('street-number').value;
+      let streetName = document.getElementById('street-name').value;
+      const rawAddress = addressInput.value;
+
+      if (!postcode || !city || !lat || !lng) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(rawAddress)}&addressdetails=1&limit=1`);
+          const data = await res.json();
+          
+          if (data && data.length > 0) {
+            const item = data[0];
+            lat = item.lat;
+            lng = item.lon;
+            postcode = item.address.postcode || '';
+            city = item.address.city || item.address.town || '';
+            streetNumber = item.address.house_number || '';
+            streetName = item.address.road || '';
+            selectedCountryCode = (item.address.country_code || 'FR').toUpperCase();
+          } else {
+            throw new Error("Adresse non trouvée");
+          }
+        } catch (error) {
+          alert("Impossible de localiser cette adresse. Merci de sélectionner une suggestion.");
+          document.getElementById('loader').classList.add('hidden');
+          document.getElementById('form-container').classList.remove('hidden');
+          return;
+        }
+      }
+
+      const payload = {
+        address: rawAddress,
+        street_number: streetNumber,
+        street: streetName,
+        postcode: postcode,
+        city: city,
+        country_code: selectedCountryCode.toUpperCase(),
+        coordinates: {
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lng)
+        },
+        property_type: document.getElementById('property-type').value,
+        surface: parseFloat(document.getElementById('surface').value),
+        rooms: parseInt(document.getElementById('rooms').value),
+        building_year: buildingYear,
+        email: document.getElementById('email').value
+      };
+
+      try {
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        document.getElementById('res-price').innerText = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.valuation.target);
+        document.getElementById('res-range').innerText = `Fourchette : ${new Intl.NumberFormat('fr-FR').format(data.valuation.lower)} € - ${new Intl.NumberFormat('fr-FR').format(data.valuation.upper)} €`;
+        document.getElementById('res-sqm-price').innerText = `${Math.round(data.valuation.target / payload.surface)} €/m²`;
+
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('result-container').classList.remove('hidden');
+
+      } catch (err) {
+        alert("Erreur de connexion avec le serveur d'estimation.");
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('form-container').classList.remove('hidden');
+      }
+    });
   </script>
 </body>
 </html>
