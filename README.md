@@ -2,11 +2,11 @@
 
 # 1. Live Environments & Production Endpoints
 
--  **Website URL: **[https://vico40.github.io/victorpricehubble/](https://vico40.github.io/victorpricehubble/)
+-  **Website URL:** [https://vico40.github.io/victorpricehubble/](https://vico40.github.io/victorpricehubble/)
 
--  **n8n Webhook Endpoint: **[https://victoralbrieux.app.n8n.cloud/webhook/valuation-mabanque](https://victoralbrieux.app.n8n.cloud/webhook/valuation-mabanque)
+-  **n8n Webhook Endpoint:** [https://victoralbrieux.app.n8n.cloud/webhook/valuation-mabanque](https://victoralbrieux.app.n8n.cloud/webhook/valuation-mabanque)
 
--  **Target Valuation API: **PriceHubble International API ([https://docs.pricehubble.com/international/getting_started_api/](https://docs.pricehubble.com/international/getting_started_api/))
+-  **Target Valuation API:** PriceHubble International API ([https://docs.pricehubble.com/international/getting_started_api/](https://docs.pricehubble.com/international/getting_started_api/))
 
 -  **Lead Storage (Google sheets):** [https://docs.google.com/spreadsheets/d/18eZFTo93x_blIvUbQCi1dpJZvFmJKdud6MDDU3ESV0c/edit?gid=0#gid=0](https://docs.google.com/spreadsheets/d/18eZFTo93x_blIvUbQCi1dpJZvFmJKdud6MDDU3ESV0c/edit?gid=0#gid=0)
 
@@ -20,9 +20,9 @@
 |  **Component** |  **Status** |  **Implementation Details** |
 | --- | --- | --- |
 |  Frontend UI |  Real |  Mobile-first single-page application built with Vanilla JS and Tailwind CSS, hosted on GitHub Pages. |
-|  Client Validation |  Real** (only for FR addresses)** |  Strict HTML5/JS input constraints (Living area 5-1000m², Land area 10-1000000m², Construction Year ≥ 1200). |
+|  Client Validation |  Real **(only for FR addresses)** |  Strict HTML5/JS input constraints (Living area 5-1000m², Land area 10-1000000m², Construction Year ≥ 1200). |
 |  Address Geocoding |  Real |  Dual-layer address parsing using French Government BAN API ([https://api-adresse.data.gouv.fr](https://api-adresse.data.gouv.fr)) with OpenStreetMap Nominatim fallback. |
-|  Valuation Engine |  Real** (only for properties to sale with FR addresses)**
+|  Valuation Engine |  Real **(only for properties to sale with FR addresses)**
  |  End-to-end integration with PriceHubble API (Authentication, Dossier Creation, Valuation Fetching). |
 |  Price per m² |  Real |  Computed dynamically on the client side (targetPrice / surface). |
 |  Confidence Index |  Real |  Extracted dynamically from PriceHubble (`valuationSale.valuationConfidence`) and mapped to English labels (_Low_, _Medium_, _High_). |
@@ -148,7 +148,7 @@
 
 ## 1. API Architecture & Backend-for-Frontend
 
--  **API Gateway : **Replace the public n8n webhook with an authenticated bank API endpoint protected by API keys or OAuth2 client credentials.
+-  **API Gateway:** Replace the public n8n webhook with an authenticated bank API endpoint protected by API keys or OAuth2 client credentials.
 
 -  **Credentials Management:** Move PriceHubble credentials out of the n8n HTTP Request node into secure environment vaults (e.g., AWS Secrets Manager, HashiCorp Vault).
 
